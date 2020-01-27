@@ -13,6 +13,9 @@ using namespace std;
 
 const double ScanMatcher::nullLikelihood=-.5;
 
+double minVal = 0.0;
+double maxVal = 80.0;
+
 ScanMatcher::ScanMatcher(): m_laserPose(0,0,0){
 	//m_laserAngles=0;
 	m_laserBeams=0;
@@ -224,12 +227,14 @@ double ScanMatcher::registerScan(ScanMatcherMap& map, const OrientedPoint& p, co
 	lp.y+=sin(p.theta)*m_laserPose.x+cos(p.theta)*m_laserPose.y;
 	lp.theta+=m_laserPose.theta;
 	IntPoint p0=map.world2map(lp);
-	
-	
+
 	const double * angle=m_laserAngles+m_initialBeamsSkip;
 	double esum=0;
 	for (const double* r=readings+m_initialBeamsSkip; r<readings+m_laserBeams; r++, angle++)
-		if (m_generateMap){
+  {
+    if(*r == minVal)
+		  continue;
+    if (m_generateMap){
 			double d=*r;
 			if (d>m_laserMaxRange||d==0.0||isnan(d))
 				continue;
@@ -248,14 +253,14 @@ double ScanMatcher::registerScan(ScanMatcherMap& map, const OrientedPoint& p, co
 				e+=cell.entropy();
 				esum+=e;
 			}
-			if (d<m_usableRange){
+			if (d<m_usableRange && d!=maxVal){
 				double e=-map.cell(p1).entropy();
 				map.cell(p1).update(true, phit);
 				e+=map.cell(p1).entropy();
 				esum+=e;
 			}
 		} else {
-			if (*r>m_laserMaxRange||*r>m_usableRange||*r==0.0||isnan(*r)) continue;
+			if (*r>m_laserMaxRange||*r>m_usableRange||*r==0.0||isnan(*r)||*r==minVal||*r==maxVal) continue;
 			Point phit=lp;
 			phit.x+=*r*cos(lp.theta+*angle);
 			phit.y+=*r*sin(lp.theta+*angle);
@@ -263,6 +268,7 @@ double ScanMatcher::registerScan(ScanMatcherMap& map, const OrientedPoint& p, co
 			assert(p1.x>=0 && p1.y>=0);
 			map.cell(p1).update(true,phit);
 		}
+  }
 	//cout  << "informationGain=" << -esum << endl;
 	return esum;
 }
